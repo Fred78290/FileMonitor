@@ -23,24 +23,26 @@ public struct LinuxWatcher: WatcherProtocol {
     public func observe() throws {
         fsWatcher.watch(path: self.path.path, for: InotifyEventMask.inAllEvents) { fsEvent in
             //print("Mask: 0x\(String(format: "%08x", fsEvent.mask))")
-            let itemPath = self.path.appendingPathComponent(fsEvent.name).path
-            let url = URL(fileURLWithPath: itemPath)
+            guard let url = URL(string: self.path.path + "/" + fsEvent.name) else { return }
+
+            // Ignore directory changes
+            if fsEvent.mask & InotifyEventMask.inIsDir.rawValue > 0 { return }
 
             var urlEvent: FileChangeEvent? = nil
 
-            // Item (file or directory) was changed
+            // File was changed
             if fsEvent.mask & InotifyEventMask.inModify.rawValue > 0
                 || fsEvent.mask & InotifyEventMask.inMoveSelf.rawValue > 0
             {
                 urlEvent = FileChangeEvent.changed(file: url)
             }
-            // Item (file or directory) added
+            // File added
             else if fsEvent.mask & InotifyEventMask.inCreate.rawValue > 0
                 || fsEvent.mask & InotifyEventMask.inMovedTo.rawValue > 0
             {
                 urlEvent = FileChangeEvent.added(file: url)
             }
-            // Item (file or directory) removed
+            // File removed
             else if fsEvent.mask & InotifyEventMask.inDelete.rawValue > 0
                 || fsEvent.mask & InotifyEventMask.inDeleteSelf.rawValue > 0
                 || fsEvent.mask & InotifyEventMask.inMovedFrom.rawValue > 0

@@ -19,42 +19,29 @@ public final class MacosWatcher: WatcherProtocol {
         lastFiles = try getCurrentFiles(in: directory)
 
         fileWatcher.callback = { [self] event throws in
-            let url = URL(fileURLWithPath: event.path)
-            let currentFiles = try getCurrentFiles(in: directory)
+            if let url = URL(string: event.path), url.isDirectory == false {
+                let currentFiles = try getCurrentFiles(in: directory)
 
-            let eventName = url.lastPathComponent
-            let existedBefore = lastFiles.contains { $0.lastPathComponent == eventName }
-            let existsNow = currentFiles.contains { $0.lastPathComponent == eventName }
-            let removedFiles = getDifferencesInFiles(lhs: lastFiles, rhs: currentFiles)
-            let addedFiles = getDifferencesInFiles(lhs: currentFiles, rhs: lastFiles)
-            let changeSetCount = addedFiles.count - removedFiles.count
+                let removedFiles = getDifferencesInFiles(lhs: lastFiles, rhs: currentFiles)
+                let addedFiles = getDifferencesInFiles(lhs: currentFiles, rhs: lastFiles)
+                let changeSetCount = addedFiles.count - removedFiles.count
 
-            func classify(removedFlag: Bool, createdFlag: Bool) -> FileChangeEvent {
-                if (existedBefore && !existsNow) || removedFlag {
-                    return .deleted(file: url)
+                // new file in folder is a change, yet
+                if (event.fileModified || event.fileChange) && changeSetCount == 0 {
+                    self.delegate?.fileDidChanged(event: FileChangeEvent.changed(file: url))
+                } else if event.fileRemoved && changeSetCount < 0 {
+                    self.delegate?.fileDidChanged(event: FileChangeEvent.deleted(file: url))
+                } else if event.fileCreated {
+                    self.delegate?.fileDidChanged(event: FileChangeEvent.added(file: url))
+                } else {
+                    if removedFiles.isEmpty == false {
+
+                    }
+                    self.delegate?.fileDidChanged(event: FileChangeEvent.changed(file: url))
                 }
 
-                if (!existedBefore && existsNow) || (createdFlag && !existedBefore) {
-                    return .added(file: url)
-                }
-
-                return .changed(file: url)
+                lastFiles = currentFiles
             }
-
-            if event.dirChange {
-                self.delegate?.fileDidChanged(event: classify(removedFlag: event.dirRemoved, createdFlag: event.dirCreated))
-                return
-            }
-
-            if event.fileRemoved || changeSetCount < 0 {
-                self.delegate?.fileDidChanged(event: .deleted(file: url))
-            } else if (event.fileCreated && changeSetCount > 0) || (!existedBefore && existsNow) {
-                self.delegate?.fileDidChanged(event: .added(file: url))
-            } else {
-                self.delegate?.fileDidChanged(event: .changed(file: url))
-            }
-
-            lastFiles = currentFiles
         }
     }
 
