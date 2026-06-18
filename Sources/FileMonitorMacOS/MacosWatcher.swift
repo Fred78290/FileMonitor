@@ -47,7 +47,7 @@ public final class MacosWatcher: WatcherProtocol {
                 return
             }
 
-            if event.fileRemoved || changeSetCount < 0 {
+            if event.fileRemoved || (changeSetCount < 0 && !existsNow) {
                 self.delegate?.fileDidChanged(event: .deleted(file: url))
             } else if (event.fileCreated && changeSetCount > 0) || (!existedBefore && existsNow) {
                 self.delegate?.fileDidChanged(event: .added(file: url))
