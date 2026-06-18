@@ -43,6 +43,7 @@ public final class MacosWatcher: WatcherProtocol {
 
             if event.dirChange {
                 self.delegate?.fileDidChanged(event: classify(removedFlag: event.dirRemoved, createdFlag: event.dirCreated))
+                self.lastFiles = currentFiles
                 return
             }
 
